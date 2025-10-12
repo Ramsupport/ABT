@@ -10,29 +10,54 @@ if (localStorage.getItem('token')) {
 }
 
 // Tab switching
-function showLoginTab(tab) {
+function switchTab(tab) {
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
-    const tabs = document.querySelectorAll('.tab-login');
+    const tabs = document.querySelectorAll('.tab-btn');
 
     if (tab === 'login') {
-        loginForm.style.display = 'block';
-        registerForm.style.display = 'none';
+        loginForm.classList.add('active');
+        registerForm.classList.remove('active');
         tabs[0].classList.add('active');
         tabs[1].classList.remove('active');
     } else {
-        registerForm.style.display = 'block';
-        loginForm.style.display = 'none';
+        registerForm.classList.add('active');
+        loginForm.classList.remove('active');
         tabs[1].classList.add('active');
         tabs[0].classList.remove('active');
     }
+    hideMessage();
+}
+
+// Show message
+function showMessage(message, type = 'error') {
+    const messageBox = document.getElementById('messageBox');
+    messageBox.textContent = message;
+    messageBox.className = `message-box ${type}`;
+    messageBox.style.display = 'block';
+    
+    if (type === 'success') {
+        setTimeout(() => {
+            messageBox.style.display = 'none';
+        }, 3000);
+    }
+}
+
+function hideMessage() {
+    const messageBox = document.getElementById('messageBox');
+    messageBox.style.display = 'none';
 }
 
 // Login
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
+async function handleLogin(e) {
     e.preventDefault();
     
-    const username = document.getElementById('loginUsername').value;
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Logging in...';
+    submitBtn.disabled = true;
+    
+    const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value;
 
     try {
@@ -47,26 +72,49 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         if (response.ok) {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
-            window.location.href = '/app.html';
+            showMessage('Login successful! Redirecting...', 'success');
+            setTimeout(() => {
+                window.location.href = '/app.html';
+            }, 1000);
         } else {
-            alert('Login failed: ' + data.error);
+            showMessage(data.error || 'Invalid username or password', 'error');
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
         }
     } catch (error) {
-        alert('Login error: ' + error.message);
+        console.error('Login error:', error);
+        showMessage('Connection error. Please try again.', 'error');
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
     }
-});
+}
 
 // Register
-document.getElementById('registerForm').addEventListener('submit', async (e) => {
+async function handleRegister(e) {
     e.preventDefault();
     
-    const fullName = document.getElementById('regFullName').value;
-    const username = document.getElementById('regUsername').value;
-    const email = document.getElementById('regEmail').value;
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Creating account...';
+    submitBtn.disabled = true;
+    
+    const fullName = document.getElementById('regFullName').value.trim();
+    const username = document.getElementById('regUsername').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
     const password = document.getElementById('regPassword').value;
 
+    // Validation
+    if (username.length < 3) {
+        showMessage('Username must be at least 3 characters', 'error');
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        return;
+    }
+
     if (password.length < 6) {
-        alert('Password must be at least 6 characters long');
+        showMessage('Password must be at least 6 characters', 'error');
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
         return;
     }
 
@@ -82,11 +130,22 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
         if (response.ok) {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
-            window.location.href = '/app.html';
+            showMessage('Account created! Redirecting...', 'success');
+            setTimeout(() => {
+                window.location.href = '/app.html';
+            }, 1000);
         } else {
-            alert('Registration failed: ' + data.error);
+            showMessage(data.error || 'Registration failed', 'error');
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
         }
     } catch (error) {
-        alert('Registration error: ' + error.message);
+        console.error('Registration error:', error);
+        showMessage('Connection error. Please try again.', 'error');
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
     }
-});
+}
+
+console.log('✅ Auth system loaded');
+console.log('🌐 API URL:', API_URL);
