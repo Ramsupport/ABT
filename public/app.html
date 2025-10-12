@@ -1,92 +1,326 @@
-// Agreement Manager - Authentication Logic
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agreement Manager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1>📄 Agreement Manager</h1>
+                <p>RentoDoc System</p>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    Welcome, <span id="userName"></span>!
+                    <span id="userRole" class="badge"></span>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()">🚪 Logout</button>
+            </div>
+        </div>
 
-const API_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:3000' 
-    : window.location.origin;
+        <div class="tabs" id="tabsContainer">
+            <button class="tab active" onclick="openTab('agreements')">📋 Agreements</button>
+            <button class="tab" onclick="openTab('reports')">📊 Reports</button>
+            <button class="tab" onclick="openTab('whatsapp')">💬 WhatsApp</button>
+            <button class="tab" onclick="openTab('backup')">💾 Backup</button>
+            <button class="tab" onclick="openTab('about')">ℹ️ About</button>
+        </div>
 
-// Check if already logged in
-if (localStorage.getItem('token')) {
-    window.location.href = '/app.html';
-}
+        <!-- Agreements Tab -->
+        <div id="agreements" class="tab-content active">
+            <!-- Search Bar -->
+            <div class="card">
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Search</label>
+                        <input type="text" id="searchInput" placeholder="Search by name, location, contact, or agent..." oninput="searchAgreements()">
+                    </div>
+                    <button class="btn btn-info" onclick="clearSearch()" style="margin-top: 32px;">Clear</button>
+                </div>
+            </div>
 
-// Tab switching
-function showLoginTab(tab) {
-    const loginForm = document.getElementById('loginForm');
-    const registerForm = document.getElementById('registerForm');
-    const tabs = document.querySelectorAll('.tab-login');
+            <!-- Agreement Form -->
+            <div class="card">
+                <h3 id="formTitle">Add New Agreement</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Name of Owner *</label>
+                        <input type="text" id="ownerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Location *</label>
+                        <input type="text" id="location" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Contact Number *</label>
+                        <input type="text" id="contactNumber" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Agent Name</label>
+                        <input type="text" id="agentName" list="agentList">
+                        <datalist id="agentList"></datalist>
+                    </div>
+                </div>
 
-    if (tab === 'login') {
-        loginForm.style.display = 'block';
-        registerForm.style.display = 'none';
-        tabs[0].classList.add('active');
-        tabs[1].classList.remove('active');
-    } else {
-        registerForm.style.display = 'block';
-        loginForm.style.display = 'none';
-        tabs[1].classList.add('active');
-        tabs[0].classList.remove('active');
-    }
-}
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Agreement Date *</label>
+                        <input type="date" id="agreementDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Stamp Duty</label>
+                        <input type="number" id="stampDuty" value="0" step="0.01" oninput="calculateTotal()">
+                    </div>
+                    <div class="form-group">
+                        <label>Registration Charges</label>
+                        <input type="number" id="regCharges" value="1000" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>DHC</label>
+                        <input type="number" id="dhc" value="300" readonly>
+                    </div>
+                </div>
 
-// Login
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const username = document.getElementById('loginUsername').value;
-    const password = document.getElementById('loginPassword').value;
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Service Charge</label>
+                        <input type="number" id="serviceCharge" value="0" step="0.01" oninput="calculateTotal()">
+                    </div>
+                    <div class="form-group">
+                        <label>Police Verification</label>
+                        <input type="number" id="policeVerification" value="0" step="0.01" oninput="calculateTotal()">
+                    </div>
+                    <div class="form-group">
+                        <label>Total Payment</label>
+                        <input type="number" id="totalPayment" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Received</label>
+                        <input type="number" id="paymentReceived" value="0" step="0.01" oninput="calculateDue()">
+                    </div>
+                </div>
 
-    try {
-        const response = await fetch(`${API_URL}/api/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Payment Received Date</label>
+                        <input type="date" id="paymentReceivedDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Due</label>
+                        <input type="number" id="paymentDue" readonly>
+                    </div>
+                </div>
 
-        const data = await response.json();
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="saveAgreement()">💾 Save Agreement</button>
+                    <button class="btn btn-warning" onclick="clearForm()">🔄 Clear Form</button>
+                </div>
+            </div>
 
-        if (response.ok) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            window.location.href = '/app.html';
-        } else {
-            alert('Login failed: ' + data.error);
-        }
-    } catch (error) {
-        alert('Login error: ' + error.message);
-    }
-});
+            <!-- Agreements Table -->
+            <div class="card">
+                <h3>All Agreements</h3>
+                <div class="loader" id="agreementLoader">Loading...</div>
+                <div style="overflow-x: auto;">
+                    <table id="agreementTable" style="display:none;">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Location</th>
+                                <th>Contact</th>
+                                <th>Agent</th>
+                                <th>Date</th>
+                                <th>Total</th>
+                                <th>Received</th>
+                                <th>Recv Date</th>
+                                <th>Due</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-// Register
-document.getElementById('registerForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const fullName = document.getElementById('regFullName').value;
-    const username = document.getElementById('regUsername').value;
-    const email = document.getElementById('regEmail').value;
-    const password = document.getElementById('regPassword').value;
+        <!-- Reports Tab -->
+        <div id="reports" class="tab-content">
+            <div class="card">
+                <h3>Generate Report</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Agent Name</label>
+                        <select id="reportAgent">
+                            <option>-- Select Agent --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>From Date</label>
+                        <input type="date" id="reportFromDate">
+                    </div>
+                    <div class="form-group">
+                        <label>To Date</label>
+                        <input type="date" id="reportToDate">
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="generateReport()">📊 Generate Report</button>
+                    <button class="btn btn-success" onclick="exportReportCSV()">💾 Export CSV</button>
+                </div>
+            </div>
 
-    if (password.length < 6) {
-        alert('Password must be at least 6 characters long');
-        return;
-    }
+            <div class="card" id="reportCard" style="display:none;">
+                <h3>Report Summary</h3>
+                <div class="stats-grid">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);">
+                        <h4>Total Due</h4>
+                        <div class="value" id="totalDue">₹0.00</div>
+                    </div>
+                </div>
 
-    try {
-        const response = await fetch(`${API_URL}/api/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email, password, fullName })
-        });
+                <div style="overflow-x: auto; margin-top: 20px;">
+                    <table id="reportTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Location</th>
+                                <th>Date</th>
+                                <th>Total</th>
+                                <th>Received</th>
+                                <th>Recv Date</th>
+                                <th>Due</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-        const data = await response.json();
+        <!-- WhatsApp Tab -->
+        <div id="whatsapp" class="tab-content">
+            <div class="card">
+                <h3>Send WhatsApp Reminders</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Agent Name</label>
+                        <select id="waAgent">
+                            <option>-- Select Agent --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>From Date</label>
+                        <input type="date" id="waFromDate">
+                    </div>
+                    <div class="form-group">
+                        <label>To Date</label>
+                        <input type="date" id="waToDate">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="loadWhatsAppClients()">📱 Load Clients</button>
+            </div>
 
-        if (response.ok) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            window.location.href = '/app.html';
-        } else {
-            alert('Registration failed: ' + data.error);
-        }
-    } catch (error) {
-        alert('Registration error: ' + error.message);
-    }
-});
+            <div class="card" id="waClientsCard" style="display:none;">
+                <h3>Clients with Pending Dues</h3>
+                <div style="overflow-x: auto;">
+                    <table id="waTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Location</th>
+                                <th>Contact</th>
+                                <th>Date</th>
+                                <th>Due</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <h4>Message Preview</h4>
+                    <textarea id="waPreview" rows="10" readonly style="width: 100%; padding: 10px; border: 2px solid #bdc3c7; border-radius: 5px;"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backup Tab -->
+        <div id="backup" class="tab-content">
+            <div class="card">
+                <h3>💾 Backup & Restore</h3>
+                <p style="color: #6c757d; margin-bottom: 15px;">
+                    Export all your data as a backup file or restore from a previous backup.
+                </p>
+                
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="exportBackup()">📥 Download Backup</button>
+                    <button class="btn btn-primary" onclick="document.getElementById('importFile').click()">📤 Import Backup</button>
+                </div>
+                
+                <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importBackup(event)">
+                
+                <div id="backupStatus" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+
+        <!-- About Tab -->
+        <div id="about" class="tab-content">
+            <div class="card">
+                <h3>About Agreement Manager</h3>
+                <p style="line-height: 1.8; color: #6c757d; margin-bottom: 20px;">
+                    <strong>Agreement Manager</strong> is a comprehensive rental agreement management system 
+                    designed for property agents and rental businesses.
+                </p>
+                
+                <h4 style="margin-top: 25px;">Key Features:</h4>
+                <ul style="line-height: 1.8; color: #6c757d; margin-left: 20px;">
+                    <li><strong>Agreement Management:</strong> Add, edit, delete and search agreements</li>
+                    <li><strong>Payment Tracking:</strong> Track total payments, received amounts and dues</li>
+                    <li><strong>Agent-wise Reports:</strong> Generate reports filtered by agent and date range</li>
+                    <li><strong>WhatsApp Integration:</strong> Send payment reminders directly via WhatsApp</li>
+                    <li><strong>Backup & Restore:</strong> Export and import your complete database</li>
+                    <li><strong>Search & Filter:</strong> Quick search across all agreement fields</li>
+                </ul>
+
+                <h4 style="margin-top: 25px;">Charge Structure:</h4>
+                <ul style="line-height: 1.8; color: #6c757d; margin-left: 20px;">
+                    <li><strong>Registration Charges:</strong> Fixed at ₹1000</li>
+                    <li><strong>DHC:</strong> Fixed at ₹300</li>
+                    <li><strong>Stamp Duty:</strong> Variable (as per agreement)</li>
+                    <li><strong>Service Charge:</strong> Variable (as per agreement)</li>
+                    <li><strong>Police Verification:</strong> Variable (optional)</li>
+                </ul>
+
+                <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                    <p style="color: #495057;"><strong>Created by Nitya Information Technologies</strong></p>
+                    <p style="color: #6c757d;">Support: <a href="mailto:support@Gizmohub.co.in">support@Gizmohub.co.in</a></p>
+                    <p style="color: #6c757d;">Phone/WhatsApp: <a href="tel:+917021956841">+91 7021956841</a></p>
+                    <p style="color: #6c757d; margin-top: 10px;">Version 1.0 - Web Edition</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Agreement</h2>
+                <button class="close-btn" onclick="closeModal('editModal')">&times;</button>
+            </div>
+            <p style="color: #6c757d; margin-bottom: 15px;">
+                Agreement details have been loaded into the form above. Make your changes and click "Save Agreement".
+            </p>
+            <button class="btn btn-primary" onclick="closeModal('editModal')">Got it!</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</htm
