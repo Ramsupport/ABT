@@ -122,14 +122,89 @@ function openTab(tabName) {
 // AGREEMENTS MANAGEMENT
 // ============================================
 
+function collectAgreementFormData() {
+    // Get values from the SIMPLE form
+    const name = document.getElementById('ownerName').value.trim();
+    const location = document.getElementById('location').value.trim();
+    const contact = document.getElementById('contactNumber').value.trim();
+    const agent = document.getElementById('agentName').value.trim();
+    const agreementDate = document.getElementById('agreementDate').value;
+    
+    const stampDuty = parseFloat(document.getElementById('stampDuty').value) || 0;
+    const regCharges = parseFloat(document.getElementById('regCharges').value) || 1000;
+    const dhc = parseFloat(document.getElementById('dhc').value) || 300;
+    const serviceCharge = parseFloat(document.getElementById('serviceCharge').value) || 0;
+    const policeVerification = parseFloat(document.getElementById('policeVerification').value) || 0;
+    
+    const totalPayment = parseFloat(document.getElementById('totalPayment').value) || 0;
+    const paymentReceived = parseFloat(document.getElementById('paymentReceived').value) || 0;
+    const paymentReceivedDate = document.getElementById('paymentReceivedDate').value;
+    const paymentDue = parseFloat(document.getElementById('paymentDue').value) || 0;
+    
+    // Map to NEW server format
+    return {
+        // Required fields
+        ownerName: name,
+        location: location,
+        tokenNumber: `TKN-${Date.now()}`, // Auto-generate if not in form
+        agreementDate: agreementDate,
+        
+        // Contact fields
+        ownerContact: contact, // Map contactNumber to ownerContact
+        tenantContact: '', // Not in form, send empty
+        email: '', // Not in form, send empty
+        
+        // Date fields
+        expiryDate: null,
+        reminderDate: null,
+        biometricDate: null,
+        
+        // Other fields
+        ccEmail: 'support@ramnathshetty.com',
+        agentName: agent,
+        
+        // Financial fields - NEW format
+        totalPayment: totalPayment,
+        govtCharges: stampDuty + regCharges + dhc, // Calculate from old fields
+        margin: totalPayment - (stampDuty + regCharges + dhc + serviceCharge + policeVerification),
+        paymentOwner: paymentReceived, // Map paymentReceived to paymentOwner
+        paymentTenant: 0,
+        paymentReceivedDate1: paymentReceivedDate,
+        paymentReceivedDate2: null,
+        paymentDue: paymentDue,
+        
+        // Status fields
+        agreementStatus: 'Drafted',
+        pvc: 'No',
+        notes: '',
+        
+        // OLD fields for backward compatibility
+        stampDuty: stampDuty,
+        registrationCharges: regCharges,
+        dhc: dhc,
+        serviceCharge: serviceCharge,
+        policeVerification: policeVerification
+    };
+}
+
 async function loadAgreements() {
     showLoader('agreementLoader');
     try {
-        allAgreements = await apiCall('/api/agreements');
+        const response = await fetch(`${API_URL}/api/agreements`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to load');
+        
+        const data = await response.json();
+        
+        // Handle new pagination format
+        allAgreements = data.agreements || data || [];
+        
         displayAgreements(allAgreements);
-        await loadAgents(); // Refresh agent dropdown
+        await loadAgents();
     } catch (error) {
-        console.error('Load agreements error:', error);
+        console.error('Load error:', error);
         alert('Failed to load agreements: ' + error.message);
     } finally {
         hideLoader('agreementLoader', 'agreementTable');
@@ -185,46 +260,60 @@ function calculateDue() {
 }
 
 async function saveAgreement() {
-    const name = document.getElementById('ownerName').value.trim();
-    const location = document.getElementById('location').value.trim();
-    const contactNumber = document.getElementById('contactNumber').value.trim();
-
-    if (!name || !location || !contactNumber) {
-        alert('Please fill in all required fields (Name, Location, Contact Number)');
+    const formData = collectAgreementFormData();
+    
+    if (!formData.ownerName || !formData.location || !formData.ownerContact) {
+        alert('Please fill in Owner Name, Location, and Contact Number');
         return;
     }
-
-    const agreementData = {
-        name,
-        location,
-        contactNumber,
-        agentName: document.getElementById('agentName').value.trim(),
-        agreementDate: document.getElementById('agreementDate').value,
-        stampDuty: parseFloat(document.getElementById('stampDuty').value) || 0,
-        registrationCharges: parseFloat(document.getElementById('regCharges').value) || 0,
-        dhc: parseFloat(document.getElementById('dhc').value) || 0,
-        serviceCharge: parseFloat(document.getElementById('serviceCharge').value) || 0,
-        policeVerification: parseFloat(document.getElementById('policeVerification').value) || 0,
-        totalPayment: parseFloat(document.getElementById('totalPayment').value) || 0,
-        paymentReceived: parseFloat(document.getElementById('paymentReceived').value) || 0,
-        paymentReceivedDate: document.getElementById('paymentReceivedDate').value,
-        paymentDue: parseFloat(document.getElementById('paymentDue').value) || 0
-    };
-
+    
+    console.log('Sending data:', formData); // Debug
+    
     try {
         if (editingAgreementId) {
-            await apiCall(`/api/agreements/${editingAgreementId}`, 'PUT', agreementData);
-            alert('Agreement updated successfully!');
+            const response = await fetch(`${API_URL}/api/agreements/${editingAgreementId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert('Agreement updated successfully!');
+                clearForm();
+                await loadAgreements();
+            } else {
+                console.error('Update error:', data);
+                alert('Failed to update: ' + (data.error || 'Unknown error'));
+            }
         } else {
-            await apiCall('/api/agreements', 'POST', agreementData);
-            alert('Agreement added successfully!');
+            const response = await fetch(`${API_URL}/api/agreements`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert('Agreement added successfully!');
+                clearForm();
+                await loadAgreements();
+            } else {
+                console.error('Add error:', data);
+                alert('Failed to add: ' + (data.error || 'Unknown error'));
+            }
         }
-
-        clearForm();
-        await loadAgreements();
     } catch (error) {
         console.error('Save agreement error:', error);
-        alert('Failed to save agreement: ' + error.message);
+        alert('Network error: ' + error.message);
     }
 }
 
