@@ -30,6 +30,7 @@ app.use(express.json());
 app.use(express.static('public'));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
+app.set('pool', pool);
 
 // Authentication Middleware
 const authenticateToken = (req, res, next) => {
@@ -43,6 +44,8 @@ const authenticateToken = (req, res, next) => {
         next();
     });
 };
+
+const whatsappRoutes = require('./routes/whatsapp');
 
 // --- AUTH ROUTES ---
 
@@ -345,6 +348,7 @@ app.post('/api/restore', authenticateToken, async (req, res) => {
 });
 
 // Start server
+app.use('/api/whatsapp', authenticateToken, whatsappRoutes);
 app.listen(PORT, () => {
     console.log(`🚀 Agreement Manager Server running on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
