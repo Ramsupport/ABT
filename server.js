@@ -212,36 +212,49 @@ app.post('/api/agreements', authenticateToken, async (req, res) => {
 });
 
 // Update agreement with ALL fields
+// Update agreement - SIMPLIFIED for your current database
 app.put('/api/agreements/:id', authenticateToken, async (req, res) => {
     const {
-        ownerName, location, tokenNumber, agreementDate,
-        ownerContact, tenantContact, email, expiryDate, reminderDate,
-        ccEmail, agentName, totalPayment, govtCharges, margin,
-        paymentOwner, paymentTenant, paymentReceivedDate1, paymentReceivedDate2,
-        paymentDue, agreementStatus, biometricDate, pvc, notes,
-        // Old fields for backward compatibility
-        stampDuty, registrationCharges, dhc, serviceCharge, policeVerification
+        ownerName, location, ownerContact, agentName, agreementDate,
+        stampDuty, registrationCharges, dhc, serviceCharge, policeVerification,
+        totalPayment, paymentOwner, paymentReceivedDate1, paymentDue
     } = req.body;
 
     try {
         const result = await pool.query(`
             UPDATE agreements SET
-                name = $1, location = $2, token_number = $3, agreement_date = $4,
-                owner_contact = $5, tenant_contact = $6, email = $7, expiry_date = $8, reminder_date = $9,
-                cc_email = $10, agent_name = $11, total_payment = $12, govt_charges = $13, margin = $14,
-                payment_owner = $15, payment_tenant = $16, payment_received_date1 = $17, payment_received_date2 = $18,
-                payment_due = $19, agreement_status = $20, biometric_date = $21, pvc = $22, notes = $23,
-                stamp_duty = $24, registration_charges = $25, dhc = $26, service_charge = $27, police_verification = $28,
+                name = $1,
+                location = $2,
+                contact_number = $3,
+                agent_name = $4,
+                agreement_date = $5,
+                stamp_duty = $6,
+                registration_charges = $7,
+                dhc = $8,
+                service_charge = $9,
+                police_verification = $10,
+                total_payment = $11,
+                payment_received = $12,
+                payment_received_date = $13,
+                payment_due = $14,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = $29
+            WHERE id = $15
             RETURNING *
         `, [
-            ownerName, location, tokenNumber, agreementDate,
-            ownerContact, tenantContact, email, expiryDate, reminderDate,
-            ccEmail || 'support@ramnathshetty.com', agentName, totalPayment || 0, govtCharges || 0, margin || 0,
-            paymentOwner || 0, paymentTenant || 0, paymentReceivedDate1, paymentReceivedDate2,
-            paymentDue || 0, agreementStatus || 'Drafted', biometricDate, pvc || 'No', notes || '',
-            stampDuty || 0, registrationCharges || 1000, dhc || 300, serviceCharge || 0, policeVerification || 0,
+            ownerName,
+            location,
+            ownerContact, // Maps to contact_number
+            agentName,
+            agreementDate,
+            stampDuty || 0,
+            registrationCharges || 1000,
+            dhc || 300,
+            serviceCharge || 0,
+            policeVerification || 0,
+            totalPayment || 0,
+            paymentOwner || 0, // Maps to payment_received
+            paymentReceivedDate1, // Maps to payment_received_date
+            paymentDue || 0,
             req.params.id
         ]);
 
