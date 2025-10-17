@@ -105,7 +105,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 // --- AGREEMENTS ROUTES ---
 
 app.get('/api/agreements', authenticateToken, async (req, res) => {
-    const { agent, fromDate, toDate, search } = req.query;
+    const { agent, fromDate, toDate, search, page = 1, limit = 200 } = req.query;
     
     try {
         let query = 'SELECT * FROM agreements WHERE 1=1';
@@ -125,15 +125,32 @@ app.get('/api/agreements', authenticateToken, async (req, res) => {
         }
 
         if (search) {
-            query += ` AND (name ILIKE $${paramCount} OR location ILIKE $${paramCount} OR contact_number ILIKE $${paramCount} OR agent_name ILIKE $${paramCount})`;
+            query += ` AND (name ILIKE $${paramCount} OR location ILIKE $${paramCount} OR contact_number ILIKE $${paramCount} OR agent_name ILIKE $${paramCount} OR token_number ILIKE $${paramCount})`;
             params.push(`%${search}%`);
             paramCount++;
         }
 
-        query += ' ORDER BY agreement_date DESC, id DESC';
+        // Get total count
+        const countQuery = query.replace('SELECT *', 'SELECT COUNT(*)');
+        const countResult = await pool.query(countQuery, params);
+        const total = parseInt(countResult.rows[0].count);
+
+        // Add pagination
+        const offset = (page - 1) * limit;
+        query += ` ORDER BY agreement_date DESC, id DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+        params.push(limit, offset);
 
         const result = await pool.query(query, params);
-        res.json(result.rows);
+        
+        res.json({
+            agreements: result.rows,
+            pagination: {
+                total: total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(total / limit)
+            }
+        });
     } catch (error) {
         console.error('Get agreements error:', error);
         res.status(500).json({ error: 'Failed to fetch agreements' });
@@ -150,54 +167,81 @@ app.get('/api/agreements/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Add new agreement with ALL fields
 app.post('/api/agreements', authenticateToken, async (req, res) => {
     const {
-        name, location, contactNumber, agentName, agreementDate,
-        stampDuty, registrationCharges, dhc, serviceCharge, policeVerification,
-        totalPayment, paymentReceived, paymentReceivedDate, paymentDue
+        ownerName, location, tokenNumber, agreementDate,
+        ownerContact, tenantContact, email, expiryDate, reminderDate,
+        ccEmail, agentName, totalPayment, govtCharges, margin,
+        paymentOwner, paymentTenant, paymentReceivedDate1, paymentReceivedDate2,
+        paymentDue, agreementStatus, biometricDate, pvc, notes,
+        // Old fields for backward compatibility
+        stampDuty, registrationCharges, dhc, serviceCharge, policeVerification
     } = req.body;
 
     try {
         const result = await pool.query(`
             INSERT INTO agreements (
-                user_id, name, location, contact_number, agent_name, agreement_date,
+                user_id, name, location, token_number, agreement_date,
+                owner_contact, tenant_contact, email, expiry_date, reminder_date,
+                cc_email, agent_name, total_payment, govt_charges, margin,
+                payment_owner, payment_tenant, payment_received_date1, payment_received_date2,
+                payment_due, agreement_status, biometric_date, pvc, notes,
                 stamp_duty, registration_charges, dhc, service_charge, police_verification,
-                total_payment, payment_received, payment_received_date, payment_due
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                created_at, updated_at
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+                $21, $22, $23, $24, $25, $26, $27, $28, $29, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            )
             RETURNING *
         `, [
-            req.user.userId, name, location, contactNumber, agentName, agreementDate,
-            stampDuty, registrationCharges, dhc, serviceCharge, policeVerification,
-            totalPayment, paymentReceived, paymentReceivedDate, paymentDue
+            req.user.userId, ownerName, location, tokenNumber, agreementDate,
+            ownerContact, tenantContact, email, expiryDate, reminderDate,
+            ccEmail || 'support@ramnathshetty.com', agentName, totalPayment || 0, govtCharges || 0, margin || 0,
+            paymentOwner || 0, paymentTenant || 0, paymentReceivedDate1, paymentReceivedDate2,
+            paymentDue || 0, agreementStatus || 'Drafted', biometricDate, pvc || 'No', notes || '',
+            stampDuty || 0, registrationCharges || 1000, dhc || 300, serviceCharge || 0, policeVerification || 0
         ]);
 
         res.status(201).json(result.rows[0]);
     } catch (error) {
         console.error('Add agreement error:', error);
-        res.status(500).json({ error: 'Failed to add agreement' });
+        res.status(500).json({ error: 'Failed to add agreement', details: error.message });
     }
 });
 
+// Update agreement with ALL fields
 app.put('/api/agreements/:id', authenticateToken, async (req, res) => {
     const {
-        name, location, contactNumber, agentName, agreementDate,
-        stampDuty, registrationCharges, dhc, serviceCharge, policeVerification,
-        totalPayment, paymentReceived, paymentReceivedDate, paymentDue
+        ownerName, location, tokenNumber, agreementDate,
+        ownerContact, tenantContact, email, expiryDate, reminderDate,
+        ccEmail, agentName, totalPayment, govtCharges, margin,
+        paymentOwner, paymentTenant, paymentReceivedDate1, paymentReceivedDate2,
+        paymentDue, agreementStatus, biometricDate, pvc, notes,
+        // Old fields for backward compatibility
+        stampDuty, registrationCharges, dhc, serviceCharge, policeVerification
     } = req.body;
 
     try {
         const result = await pool.query(`
             UPDATE agreements SET
-                name = $1, location = $2, contact_number = $3, agent_name = $4, agreement_date = $5,
-                stamp_duty = $6, registration_charges = $7, dhc = $8, service_charge = $9,
-                police_verification = $10, total_payment = $11, payment_received = $12,
-                payment_received_date = $13, payment_due = $14, updated_at = CURRENT_TIMESTAMP
-            WHERE id = $15
+                name = $1, location = $2, token_number = $3, agreement_date = $4,
+                owner_contact = $5, tenant_contact = $6, email = $7, expiry_date = $8, reminder_date = $9,
+                cc_email = $10, agent_name = $11, total_payment = $12, govt_charges = $13, margin = $14,
+                payment_owner = $15, payment_tenant = $16, payment_received_date1 = $17, payment_received_date2 = $18,
+                payment_due = $19, agreement_status = $20, biometric_date = $21, pvc = $22, notes = $23,
+                stamp_duty = $24, registration_charges = $25, dhc = $26, service_charge = $27, police_verification = $28,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $29
             RETURNING *
         `, [
-            name, location, contactNumber, agentName, agreementDate,
-            stampDuty, registrationCharges, dhc, serviceCharge, policeVerification,
-            totalPayment, paymentReceived, paymentReceivedDate, paymentDue,
+            ownerName, location, tokenNumber, agreementDate,
+            ownerContact, tenantContact, email, expiryDate, reminderDate,
+            ccEmail || 'support@ramnathshetty.com', agentName, totalPayment || 0, govtCharges || 0, margin || 0,
+            paymentOwner || 0, paymentTenant || 0, paymentReceivedDate1, paymentReceivedDate2,
+            paymentDue || 0, agreementStatus || 'Drafted', biometricDate, pvc || 'No', notes || '',
+            stampDuty || 0, registrationCharges || 1000, dhc || 300, serviceCharge || 0, policeVerification || 0,
             req.params.id
         ]);
 
@@ -205,7 +249,7 @@ app.put('/api/agreements/:id', authenticateToken, async (req, res) => {
         res.json(result.rows[0]);
     } catch (error) {
         console.error('Update agreement error:', error);
-        res.status(500).json({ error: 'Failed to update agreement' });
+        res.status(500).json({ error: 'Failed to update agreement', details: error.message });
     }
 });
 
@@ -236,8 +280,9 @@ app.get('/api/reports', authenticateToken, async (req, res) => {
 
     try {
         const result = await pool.query(`
-            SELECT name, location, agreement_date, total_payment, payment_received, 
-                   payment_received_date, payment_due, contact_number
+            SELECT name, location, token_number, agreement_date, total_payment, 
+                   payment_owner, payment_tenant, payment_received_date1, payment_received_date2,
+                   payment_due, contact_number, owner_contact, agent_name
             FROM agreements
             WHERE agent_name = $1 AND agreement_date BETWEEN $2 AND $3 AND total_payment > 0
             ORDER BY agreement_date DESC
@@ -255,7 +300,39 @@ app.get('/api/reports', authenticateToken, async (req, res) => {
     }
 });
 
-// REMOVED OLD /api/whatsapp-clients endpoint - now handled by routes/whatsapp.js
+// Export comprehensive data
+app.get('/api/agreements/export/comprehensive', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM agreements ORDER BY agreement_date DESC');
+        
+        const csvHeaders = [
+            'Name of Owner', 'Location', 'Token Number', 'Agreement Date',
+            'Owner Contact', 'Tenant Contact', 'Email', 'Expiry Date',
+            'Reminder Date', 'CC Email', 'Agent Name', 'Total Payment',
+            'Govt Charges', 'Margin', 'Payment from Owner', 'Payment from Tenant',
+            'Payment Received Date 1', 'Payment Received Date 2', 'Payment Due',
+            'Agreement Status', 'Biometric Date', 'PVC', 'Created Date'
+        ].join(',');
+
+        const csvRows = result.rows.map(row => [
+            row.name || '', row.location || '', row.token_number || '', row.agreement_date || '',
+            row.owner_contact || '', row.tenant_contact || '', row.email || '', row.expiry_date || '',
+            row.reminder_date || '', row.cc_email || '', row.agent_name || '', row.total_payment || 0,
+            row.govt_charges || 0, row.margin || 0, row.payment_owner || 0, row.payment_tenant || 0,
+            row.payment_received_date1 || '', row.payment_received_date2 || '', row.payment_due || 0,
+            row.agreement_status || '', row.biometric_date || '', row.pvc || '', row.created_at || ''
+        ].map(field => `"${field}"`).join(','));
+
+        const csv = [csvHeaders, ...csvRows].join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=comprehensive_agreements.csv');
+        res.send('\uFEFF' + csv); // BOM for Excel UTF-8 support
+    } catch (error) {
+        console.error('Export error:', error);
+        res.status(500).json({ error: 'Failed to export data' });
+    }
+});
 
 // Backup endpoint
 app.get('/api/backup', authenticateToken, async (req, res) => {
@@ -293,18 +370,27 @@ app.post('/api/restore', authenticateToken, async (req, res) => {
             for (const agreement of data.agreements) {
                 await client.query(`
                     INSERT INTO agreements (
-                        id, user_id, name, location, contact_number, agent_name, agreement_date,
+                        id, user_id, name, location, token_number, agreement_date,
+                        owner_contact, tenant_contact, email, expiry_date, reminder_date,
+                        cc_email, agent_name, total_payment, govt_charges, margin,
+                        payment_owner, payment_tenant, payment_received_date1, payment_received_date2,
+                        payment_due, agreement_status, biometric_date, pvc, notes,
                         stamp_duty, registration_charges, dhc, service_charge, police_verification,
-                        total_payment, payment_received, payment_received_date, payment_due,
                         created_at, updated_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                    ) VALUES (
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+                        $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31
+                    )
                 `, [
-                    agreement.id, agreement.user_id, agreement.name, agreement.location,
-                    agreement.contact_number, agreement.agent_name, agreement.agreement_date,
-                    agreement.stamp_duty, agreement.registration_charges, agreement.dhc,
-                    agreement.service_charge, agreement.police_verification, agreement.total_payment,
-                    agreement.payment_received, agreement.payment_received_date, agreement.payment_due,
-                    agreement.created_at, agreement.updated_at
+                    agreement.id, agreement.user_id, agreement.name, agreement.location, agreement.token_number,
+                    agreement.agreement_date, agreement.owner_contact, agreement.tenant_contact, agreement.email,
+                    agreement.expiry_date, agreement.reminder_date, agreement.cc_email, agreement.agent_name,
+                    agreement.total_payment, agreement.govt_charges, agreement.margin, agreement.payment_owner,
+                    agreement.payment_tenant, agreement.payment_received_date1, agreement.payment_received_date2,
+                    agreement.payment_due, agreement.agreement_status, agreement.biometric_date, agreement.pvc,
+                    agreement.notes, agreement.stamp_duty, agreement.registration_charges, agreement.dhc,
+                    agreement.service_charge, agreement.police_verification, agreement.created_at, agreement.updated_at
                 ]);
             }
         }
@@ -320,7 +406,7 @@ app.post('/api/restore', authenticateToken, async (req, res) => {
     }
 });
 
-// ✅ REGISTER WHATSAPP ROUTES HERE (BEFORE app.listen)
+// Register WhatsApp routes
 app.use('/api/whatsapp', authenticateToken, whatsappRoutes);
 
 // Start server
