@@ -220,17 +220,21 @@ function displayAgreements(agreements) {
         
         const dueAmount = parseFloat(agreement.payment_due) || 0;
         const dueClass = dueAmount > 0 ? 'due-red' : '';
+        
+        // Use correct column names from database
+        const contactNumber = agreement.contact_number || agreement.owner_contact || '';
+        const paymentReceived = agreement.payment_received || agreement.payment_owner || 0;
 
         row.innerHTML = `
             <td>${agreement.id}</td>
             <td>${agreement.name}</td>
             <td>${agreement.location}</td>
-            <td>${agreement.contact_number}</td>
+            <td>${contactNumber}</td>
             <td>${agreement.agent_name || '-'}</td>
             <td>${formatDate(agreement.agreement_date)}</td>
-            <td>₹${parseFloat(agreement.total_payment).toFixed(2)}</td>
-            <td>₹${parseFloat(agreement.payment_received).toFixed(2)}</td>
-            <td>${formatDate(agreement.payment_received_date)}</td>
+            <td>₹${parseFloat(agreement.total_payment || 0).toFixed(2)}</td>
+            <td>₹${parseFloat(paymentReceived).toFixed(2)}</td>
+            <td>${formatDate(agreement.payment_received_date || agreement.payment_received_date1)}</td>
             <td class="${dueClass}">₹${dueAmount.toFixed(2)}</td>
             <td class="action-buttons">
                 <button class="action-btn btn-warning" onclick="editAgreement(${agreement.id})">Edit</button>
@@ -324,20 +328,21 @@ async function editAgreement(id) {
         editingAgreementId = id;
         document.getElementById('formTitle').textContent = 'Edit Agreement';
         
-        document.getElementById('ownerName').value = agreement.name;
-        document.getElementById('location').value = agreement.location;
-        document.getElementById('contactNumber').value = agreement.contact_number;
+        // Map database columns to form fields
+        document.getElementById('ownerName').value = agreement.name || '';
+        document.getElementById('location').value = agreement.location || '';
+        document.getElementById('contactNumber').value = agreement.contact_number || ''; // Fixed!
         document.getElementById('agentName').value = agreement.agent_name || '';
-        document.getElementById('agreementDate').value = agreement.agreement_date;
-        document.getElementById('stampDuty').value = agreement.stamp_duty;
-        document.getElementById('regCharges').value = agreement.registration_charges;
-        document.getElementById('dhc').value = agreement.dhc;
-        document.getElementById('serviceCharge').value = agreement.service_charge;
-        document.getElementById('policeVerification').value = agreement.police_verification;
-        document.getElementById('totalPayment').value = agreement.total_payment;
-        document.getElementById('paymentReceived').value = agreement.payment_received;
+        document.getElementById('agreementDate').value = agreement.agreement_date || '';
+        document.getElementById('stampDuty').value = agreement.stamp_duty || 0;
+        document.getElementById('regCharges').value = agreement.registration_charges || 1000;
+        document.getElementById('dhc').value = agreement.dhc || 300;
+        document.getElementById('serviceCharge').value = agreement.service_charge || 0;
+        document.getElementById('policeVerification').value = agreement.police_verification || 0;
+        document.getElementById('totalPayment').value = agreement.total_payment || 0;
+        document.getElementById('paymentReceived').value = agreement.payment_received || 0;
         document.getElementById('paymentReceivedDate').value = agreement.payment_received_date || '';
-        document.getElementById('paymentDue').value = agreement.payment_due;
+        document.getElementById('paymentDue').value = agreement.payment_due || 0;
 
         // Scroll to form
         document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
