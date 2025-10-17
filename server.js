@@ -196,12 +196,22 @@ app.post('/api/agreements', authenticateToken, async (req, res) => {
             )
             RETURNING *
         `, [
-            req.user.userId, ownerName, location, tokenNumber, agreementDate,
-            ownerContact, tenantContact, email, expiryDate, reminderDate,
-            ccEmail || 'support@ramnathshetty.com', agentName, totalPayment || 0, govtCharges || 0, margin || 0,
-            paymentOwner || 0, paymentTenant || 0, paymentReceivedDate1, paymentReceivedDate2,
-            paymentDue || 0, agreementStatus || 'Drafted', biometricDate, pvc || 'No', notes || '',
-            stampDuty || 0, registrationCharges || 1000, dhc || 300, serviceCharge || 0, policeVerification || 0
+            req.user.userId,
+            ownerName,
+            location,
+            ownerContact,
+            agentName,
+            agreementDate,
+            stampDuty || 0,
+            registrationCharges || 1000,
+            dhc || 300,
+            serviceCharge || 0,
+            policeVerification || 0,
+            outstationCharges || 0, // ✅ NEW
+            totalPayment || 0,
+            paymentOwner || 0,
+            paymentReceivedDate1,
+            paymentDue || 0
         ]);
 
         res.status(201).json(result.rows[0]);
@@ -251,6 +261,7 @@ app.put('/api/agreements/:id', authenticateToken, async (req, res) => {
             dhc || 300,
             serviceCharge || 0,
             policeVerification || 0,
+			outstationCharges || 0, // ✅ NEW
             totalPayment || 0,
             paymentOwner || 0, // Maps to payment_received
             paymentReceivedDate1, // Maps to payment_received_date
