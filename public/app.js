@@ -211,6 +211,12 @@ async function loadAgreements() {
     }
 }
 
+function formatDateForInput(dateString) {
+    if (!dateString) return '';
+    // Extract just YYYY-MM-DD from ISO date string
+    return dateString.split('T')[0];
+}
+
 function displayAgreements(agreements) {
     const tbody = document.querySelector('#agreementTable tbody');
     tbody.innerHTML = '';
@@ -328,12 +334,12 @@ async function editAgreement(id) {
         editingAgreementId = id;
         document.getElementById('formTitle').textContent = 'Edit Agreement';
         
-        // Map database columns to form fields
+        // Map database columns to form fields with proper date formatting
         document.getElementById('ownerName').value = agreement.name || '';
         document.getElementById('location').value = agreement.location || '';
-        document.getElementById('contactNumber').value = agreement.contact_number || ''; // Fixed!
+        document.getElementById('contactNumber').value = agreement.contact_number || '';
         document.getElementById('agentName').value = agreement.agent_name || '';
-        document.getElementById('agreementDate').value = agreement.agreement_date || '';
+        document.getElementById('agreementDate').value = formatDateForInput(agreement.agreement_date);
         document.getElementById('stampDuty').value = agreement.stamp_duty || 0;
         document.getElementById('regCharges').value = agreement.registration_charges || 1000;
         document.getElementById('dhc').value = agreement.dhc || 300;
@@ -341,7 +347,7 @@ async function editAgreement(id) {
         document.getElementById('policeVerification').value = agreement.police_verification || 0;
         document.getElementById('totalPayment').value = agreement.total_payment || 0;
         document.getElementById('paymentReceived').value = agreement.payment_received || 0;
-        document.getElementById('paymentReceivedDate').value = agreement.payment_received_date || '';
+        document.getElementById('paymentReceivedDate').value = formatDateForInput(agreement.payment_received_date);
         document.getElementById('paymentDue').value = agreement.payment_due || 0;
 
         // Scroll to form
