@@ -168,31 +168,23 @@ app.get('/api/agreements/:id', authenticateToken, async (req, res) => {
 });
 
 // Add new agreement with ALL fields
+// Add new agreement - SIMPLIFIED for your current database
 app.post('/api/agreements', authenticateToken, async (req, res) => {
     const {
-        ownerName, location, tokenNumber, agreementDate,
-        ownerContact, tenantContact, email, expiryDate, reminderDate,
-        ccEmail, agentName, totalPayment, govtCharges, margin,
-        paymentOwner, paymentTenant, paymentReceivedDate1, paymentReceivedDate2,
-        paymentDue, agreementStatus, biometricDate, pvc, notes,
-        // Old fields for backward compatibility
-        stampDuty, registrationCharges, dhc, serviceCharge, policeVerification
+        ownerName, location, ownerContact, agentName, agreementDate,
+        stampDuty, registrationCharges, dhc, serviceCharge, policeVerification, outstationCharges,
+        totalPayment, paymentOwner, paymentReceivedDate1, paymentDue
     } = req.body;
 
     try {
         const result = await pool.query(`
             INSERT INTO agreements (
-                user_id, name, location, token_number, agreement_date,
-                owner_contact, tenant_contact, email, expiry_date, reminder_date,
-                cc_email, agent_name, total_payment, govt_charges, margin,
-                payment_owner, payment_tenant, payment_received_date1, payment_received_date2,
-                payment_due, agreement_status, biometric_date, pvc, notes,
-                stamp_duty, registration_charges, dhc, service_charge, police_verification,
+                user_id, name, location, contact_number, agent_name, agreement_date,
+                stamp_duty, registration_charges, dhc, service_charge, police_verification, outstation_charges,
+                total_payment, payment_received, payment_received_date, payment_due,
                 created_at, updated_at
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-                $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-                $21, $22, $23, $24, $25, $26, $27, $28, $29, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             )
             RETURNING *
         `, [
@@ -207,7 +199,7 @@ app.post('/api/agreements', authenticateToken, async (req, res) => {
             dhc || 300,
             serviceCharge || 0,
             policeVerification || 0,
-            outstationCharges || 0, // ✅ NEW
+            outstationCharges || 0,
             totalPayment || 0,
             paymentOwner || 0,
             paymentReceivedDate1,
@@ -221,12 +213,12 @@ app.post('/api/agreements', authenticateToken, async (req, res) => {
     }
 });
 
-// Update agreement with ALL fields
+
 // Update agreement - SIMPLIFIED for your current database
 app.put('/api/agreements/:id', authenticateToken, async (req, res) => {
     const {
         ownerName, location, ownerContact, agentName, agreementDate,
-        stampDuty, registrationCharges, dhc, serviceCharge, policeVerification,
+        stampDuty, registrationCharges, dhc, serviceCharge, policeVerification, outstationCharges,
         totalPayment, paymentOwner, paymentReceivedDate1, paymentDue
     } = req.body;
 
@@ -243,17 +235,18 @@ app.put('/api/agreements/:id', authenticateToken, async (req, res) => {
                 dhc = $8,
                 service_charge = $9,
                 police_verification = $10,
-                total_payment = $11,
-                payment_received = $12,
-                payment_received_date = $13,
-                payment_due = $14,
+                outstation_charges = $11,
+                total_payment = $12,
+                payment_received = $13,
+                payment_received_date = $14,
+                payment_due = $15,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = $15
+            WHERE id = $16
             RETURNING *
         `, [
             ownerName,
             location,
-            ownerContact, // Maps to contact_number
+            ownerContact,
             agentName,
             agreementDate,
             stampDuty || 0,
@@ -261,10 +254,10 @@ app.put('/api/agreements/:id', authenticateToken, async (req, res) => {
             dhc || 300,
             serviceCharge || 0,
             policeVerification || 0,
-			outstationCharges || 0, // ✅ NEW
+            outstationCharges || 0,
             totalPayment || 0,
-            paymentOwner || 0, // Maps to payment_received
-            paymentReceivedDate1, // Maps to payment_received_date
+            paymentOwner || 0,
+            paymentReceivedDate1,
             paymentDue || 0,
             req.params.id
         ]);
