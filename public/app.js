@@ -55,6 +55,9 @@ async function checkAuth() {
         const roleSpan = document.getElementById('userRole');
         roleSpan.textContent = currentUser.role.toUpperCase();
         roleSpan.className = `badge badge-${currentUser.role}`;
+        
+        // ✅ Move console.log HERE (after currentUser is set)
+        console.log('✅ User authenticated:', currentUser.username);
     } catch (error) {
         console.error('Auth error:', error);
         localStorage.removeItem('token');
@@ -775,5 +778,3 @@ document.addEventListener('DOMContentLoaded', () => {
     calculateTotal();
 });
 
-console.log('✅ Agreement Manager Loaded Successfully!');
-console.log('👤 Current User:', currentUser?.username || 'Not logged in');
