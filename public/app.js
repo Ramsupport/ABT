@@ -138,6 +138,7 @@ function collectAgreementFormData() {
     const dhc = parseFloat(document.getElementById('dhc').value) || 300;
     const serviceCharge = parseFloat(document.getElementById('serviceCharge').value) || 0;
     const policeVerification = parseFloat(document.getElementById('policeVerification').value) || 0;
+	const outstationCharges = parseFloat(document.getElementById('outstationCharges').value) || 0; // ✅ NEW
     
     const totalPayment = parseFloat(document.getElementById('totalPayment').value) || 0;
     const paymentReceived = parseFloat(document.getElementById('paymentReceived').value) || 0;
@@ -163,13 +164,13 @@ function collectAgreementFormData() {
         biometricDate: null,
         
         // Other fields
-        ccEmail: 'support@ramnathshetty.com',
+        ccEmail: 'rentodoc@gmail.com',
         agentName: agent,
         
         // Financial fields - NEW format
         totalPayment: totalPayment,
         govtCharges: stampDuty + regCharges + dhc, // Calculate from old fields
-        margin: totalPayment - (stampDuty + regCharges + dhc + serviceCharge + policeVerification),
+        margin: totalPayment - (stampDuty + regCharges + dhc + serviceCharge + policeVerification + outstationCharges), // ✅ UPDATED
         paymentOwner: paymentReceived, // Map paymentReceived to paymentOwner
         paymentTenant: 0,
         paymentReceivedDate1: paymentReceivedDate,
@@ -187,6 +188,7 @@ function collectAgreementFormData() {
         dhc: dhc,
         serviceCharge: serviceCharge,
         policeVerification: policeVerification
+		outstationCharges: outstationCharges // ✅ NEW
     };
 }
 
@@ -259,8 +261,9 @@ function calculateTotal() {
     const dhc = parseFloat(document.getElementById('dhc').value) || 0;
     const serviceCharge = parseFloat(document.getElementById('serviceCharge').value) || 0;
     const policeVerification = parseFloat(document.getElementById('policeVerification').value) || 0;
+	const outstationCharges = parseFloat(document.getElementById('outstationCharges').value) || 0; // ✅ NEW
 
-    const total = stampDuty + regCharges + dhc + serviceCharge + policeVerification;
+    const outstationCharges = parseFloat(document.getElementById('outstationCharges').value) || 0; // ✅ NEW
     document.getElementById('totalPayment').value = total.toFixed(2);
     calculateDue();
 }
@@ -348,6 +351,7 @@ async function editAgreement(id) {
         document.getElementById('dhc').value = agreement.dhc || 300;
         document.getElementById('serviceCharge').value = agreement.service_charge || 0;
         document.getElementById('policeVerification').value = agreement.police_verification || 0;
+		document.getElementById('outstationCharges').value = agreement.outstation_charges || 0; // ✅ NEW
         document.getElementById('totalPayment').value = agreement.total_payment || 0;
         document.getElementById('paymentReceived').value = agreement.payment_received || 0;
         document.getElementById('paymentReceivedDate').value = formatDateForInput(agreement.payment_received_date);
@@ -390,6 +394,7 @@ function clearForm() {
     document.getElementById('dhc').value = '300';
     document.getElementById('serviceCharge').value = '0';
     document.getElementById('policeVerification').value = '0';
+	document.getElementById('outstationCharges').value = '0'; // ✅ NEW
     document.getElementById('totalPayment').value = '1300';
     document.getElementById('paymentReceived').value = '0';
     document.getElementById('paymentReceivedDate').value = new Date().toISOString().split('T')[0];
@@ -596,7 +601,7 @@ Thanks,
 🏢 *RentoDoc Team*`;
 }
 
-async function sendWhatsApp(contact, agent, name, location, date, stampDuty, regCharges, dhc, service, police, total, received, due) {
+async function sendWhatsApp(contact, agent, name, location, date, stampDuty, regCharges, dhc, service, police, outstation, total, received, due) {
     if (!confirm(`Send WhatsApp reminder to ${name} (${contact})?`)) {
         return;
     }
