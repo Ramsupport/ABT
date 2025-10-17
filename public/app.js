@@ -596,56 +596,60 @@ Thanks,
 🏢 *RentoDoc Team*`;
 }
 
-function sendWhatsApp(contact, agent, name, location, date, stampDuty, regCharges, dhc, service, police, total, received, due) {
+async function sendWhatsApp(contact, agent, name, location, date, stampDuty, regCharges, dhc, service, police, total, received, due) {
     if (!confirm(`Send WhatsApp reminder to ${name} (${contact})?`)) {
         return;
     }
     
-    // Format values
-    const formattedStampDuty = parseFloat(stampDuty).toFixed(2);
-    const formattedRegCharges = parseFloat(regCharges).toFixed(2);
-    const formattedDhc = parseFloat(dhc).toFixed(2);
-    const formattedService = parseFloat(service).toFixed(2);
-    const formattedPolice = parseFloat(police).toFixed(2);
-    const formattedTotal = parseFloat(total).toFixed(2);
-    const formattedReceived = parseFloat(received).toFixed(2);
-    const formattedDue = parseFloat(due).toFixed(2);
-    
-    // Send via API
-    fetch('/api/whatsapp/send', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-            name: name,
-            location: location,
-            contact: contact,
-            date: date,
-            stampDuty: formattedStampDuty,
-            regCharges: formattedRegCharges,
-            dhc: formattedDhc,
-            service: formattedService,
-            police: formattedPolice,
-            total: formattedTotal,
-            received: formattedReceived,
-            due: formattedDue
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(`WhatsApp sent successfully to ${name}!`);
-            addLog('WHATSAPP', `Sent reminder to ${name} (${contact})`);
+    try {
+        // Format values
+        const formattedStampDuty = parseFloat(stampDuty).toFixed(2);
+        const formattedRegCharges = parseFloat(regCharges).toFixed(2);
+        const formattedDhc = parseFloat(dhc).toFixed(2);
+        const formattedService = parseFloat(service).toFixed(2);
+        const formattedPolice = parseFloat(police).toFixed(2);
+        const formattedTotal = parseFloat(total).toFixed(2);
+        const formattedReceived = parseFloat(received).toFixed(2);
+        const formattedDue = parseFloat(due).toFixed(2);
+        
+        console.log('Sending WhatsApp to:', contact);
+        
+        // Send via API
+        const response = await fetch('/api/whatsapp/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+                name: name,
+                location: location,
+                contact: contact,
+                date: date,
+                stampDuty: formattedStampDuty,
+                regCharges: formattedRegCharges,
+                dhc: formattedDhc,
+                service: formattedService,
+                police: formattedPolice,
+                total: formattedTotal,
+                received: formattedReceived,
+                due: formattedDue
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            alert(`✅ WhatsApp sent successfully to ${name}!`);
+            console.log('WhatsApp sent! Message SID:', data.messageSid);
         } else {
-            alert('Failed to send WhatsApp: ' + (data.error || 'Unknown error'));
+            console.error('WhatsApp error:', data);
+            alert('⚠️ Failed to send WhatsApp: ' + (data.details || data.error || 'Unknown error'));
         }
-    })
-    .catch(error => {
-        console.error('Error sending WhatsApp:', error);
-        alert('Network error while sending WhatsApp');
-    });
+    } catch (error) {
+        console.error('Network error sending WhatsApp:', error);
+        alert('❌ Network error while sending WhatsApp. Please check your connection and try again.');
+    }
 }
 
 // ============================================
