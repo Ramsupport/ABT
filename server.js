@@ -15,6 +15,8 @@ const pool = new Pool({
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
+app.set('pool', pool);
+
 pool.connect((err, client, release) => {
     if (err) {
         console.error('Error connecting to the database:', err.stack);
@@ -30,7 +32,6 @@ app.use(express.json());
 app.use(express.static('public'));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
-app.set('pool', pool);
 
 // Authentication Middleware
 const authenticateToken = (req, res, next) => {
@@ -45,6 +46,7 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
+// Import routes
 const whatsappRoutes = require('./routes/whatsapp');
 
 // --- AUTH ROUTES ---
@@ -102,7 +104,6 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 
 // --- AGREEMENTS ROUTES ---
 
-// Get all agreements with optional filters
 app.get('/api/agreements', authenticateToken, async (req, res) => {
     const { agent, fromDate, toDate, search } = req.query;
     
@@ -139,7 +140,6 @@ app.get('/api/agreements', authenticateToken, async (req, res) => {
     }
 });
 
-// Get single agreement
 app.get('/api/agreements/:id', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM agreements WHERE id = $1', [req.params.id]);
@@ -150,7 +150,6 @@ app.get('/api/agreements/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Add new agreement
 app.post('/api/agreements', authenticateToken, async (req, res) => {
     const {
         name, location, contactNumber, agentName, agreementDate,
@@ -179,7 +178,6 @@ app.post('/api/agreements', authenticateToken, async (req, res) => {
     }
 });
 
-// Update agreement
 app.put('/api/agreements/:id', authenticateToken, async (req, res) => {
     const {
         name, location, contactNumber, agentName, agreementDate,
@@ -211,7 +209,6 @@ app.put('/api/agreements/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Delete agreement
 app.delete('/api/agreements/:id', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query('DELETE FROM agreements WHERE id = $1 RETURNING id', [req.params.id]);
@@ -223,7 +220,6 @@ app.delete('/api/agreements/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Get distinct agents
 app.get('/api/agents', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query(
@@ -235,7 +231,6 @@ app.get('/api/agents', authenticateToken, async (req, res) => {
     }
 });
 
-// Generate report with totals
 app.get('/api/reports', authenticateToken, async (req, res) => {
     const { agent, fromDate, toDate } = req.query;
 
@@ -260,26 +255,7 @@ app.get('/api/reports', authenticateToken, async (req, res) => {
     }
 });
 
-// Get WhatsApp clients (dues > 0)
-app.get('/api/whatsapp-clients', authenticateToken, async (req, res) => {
-    const { agent, fromDate, toDate } = req.query;
-
-    try {
-        const result = await pool.query(`
-            SELECT name, location, contact_number, agreement_date, payment_due,
-                   stamp_duty, registration_charges, dhc, service_charge, police_verification,
-                   total_payment, payment_received
-            FROM agreements
-            WHERE agent_name = $1 AND agreement_date BETWEEN $2 AND $3 AND payment_due > 0
-            ORDER BY payment_due DESC
-        `, [agent, fromDate, toDate]);
-
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Get WhatsApp clients error:', error);
-        res.status(500).json({ error: 'Failed to fetch WhatsApp clients' });
-    }
-});
+// REMOVED OLD /api/whatsapp-clients endpoint - now handled by routes/whatsapp.js
 
 // Backup endpoint
 app.get('/api/backup', authenticateToken, async (req, res) => {
@@ -303,7 +279,6 @@ app.get('/api/backup', authenticateToken, async (req, res) => {
     }
 });
 
-// Restore endpoint
 app.post('/api/restore', authenticateToken, async (req, res) => {
     const { data } = req.body;
     const client = await pool.connect();
@@ -311,11 +286,9 @@ app.post('/api/restore', authenticateToken, async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // Clear existing data except current admin
         await client.query('DELETE FROM agreements');
         await client.query('DELETE FROM users WHERE id != $1', [req.user.userId]);
 
-        // Restore agreements
         if (data.agreements && data.agreements.length > 0) {
             for (const agreement of data.agreements) {
                 await client.query(`
@@ -347,8 +320,10 @@ app.post('/api/restore', authenticateToken, async (req, res) => {
     }
 });
 
-// Start server
+// ✅ REGISTER WHATSAPP ROUTES HERE (BEFORE app.listen)
 app.use('/api/whatsapp', authenticateToken, whatsappRoutes);
+
+// Start server
 app.listen(PORT, () => {
     console.log(`🚀 Agreement Manager Server running on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
