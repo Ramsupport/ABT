@@ -187,7 +187,7 @@ function collectAgreementFormData() {
         registrationCharges: regCharges,
         dhc: dhc,
         serviceCharge: serviceCharge,
-        policeVerification: policeVerification
+        policeVerification: policeVerification.
 		outstationCharges: outstationCharges // ✅ NEW
     };
 }
@@ -262,8 +262,7 @@ function calculateTotal() {
     const serviceCharge = parseFloat(document.getElementById('serviceCharge').value) || 0;
     const policeVerification = parseFloat(document.getElementById('policeVerification').value) || 0;
 	const outstationCharges = parseFloat(document.getElementById('outstationCharges').value) || 0; // ✅ NEW
-
-    const outstationCharges = parseFloat(document.getElementById('outstationCharges').value) || 0; // ✅ NEW
+	const total = stampDuty + regCharges + dhc + serviceCharge + policeVerification + outstationCharges; // ✅ FIXED
     document.getElementById('totalPayment').value = total.toFixed(2);
     calculateDue();
 }
