@@ -187,7 +187,7 @@ function collectAgreementFormData() {
         registrationCharges: regCharges,
         dhc: dhc,
         serviceCharge: serviceCharge,
-        policeVerification: policeVerification.
+        policeVerification: policeVerification,
 		outstationCharges: outstationCharges // ✅ NEW
     };
 }
