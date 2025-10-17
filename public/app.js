@@ -437,7 +437,7 @@ async function loadWhatsAppClients() {
     const toDate = document.getElementById('waToDate').value;
 
     try {
-        const clients = await apiCall(`/api/whatsapp-clients?agent=${encodeURIComponent(agent)}&fromDate=${fromDate}&toDate=${toDate}`);
+        const clients = await apiCall(`/api/whatsapp/clients?agent=${encodeURIComponent(agent)}&fromDate=${fromDate}&toDate=${toDate}`);
         
         const tbody = document.querySelector('#waTable tbody');
         tbody.innerHTML = '';
@@ -494,9 +494,55 @@ Thanks,
 }
 
 function sendWhatsApp(contact, agent, name, location, date, stampDuty, regCharges, dhc, service, police, total, received, due) {
-    const message = generateWhatsAppMessage(agent, name, location, date, stampDuty, regCharges, dhc, service, police, total, received, due);
-    const url = `https://web.whatsapp.com/send?phone=${contact}&text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+    if (!confirm(`Send WhatsApp reminder to ${name} (${contact})?`)) {
+        return;
+    }
+    
+    // Format values
+    const formattedStampDuty = parseFloat(stampDuty).toFixed(2);
+    const formattedRegCharges = parseFloat(regCharges).toFixed(2);
+    const formattedDhc = parseFloat(dhc).toFixed(2);
+    const formattedService = parseFloat(service).toFixed(2);
+    const formattedPolice = parseFloat(police).toFixed(2);
+    const formattedTotal = parseFloat(total).toFixed(2);
+    const formattedReceived = parseFloat(received).toFixed(2);
+    const formattedDue = parseFloat(due).toFixed(2);
+    
+    // Send via API
+    fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+            name: name,
+            location: location,
+            contact: contact,
+            date: date,
+            stampDuty: formattedStampDuty,
+            regCharges: formattedRegCharges,
+            dhc: formattedDhc,
+            service: formattedService,
+            police: formattedPolice,
+            total: formattedTotal,
+            received: formattedReceived,
+            due: formattedDue
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`WhatsApp sent successfully to ${name}!`);
+            addLog('WHATSAPP', `Sent reminder to ${name} (${contact})`);
+        } else {
+            alert('Failed to send WhatsApp: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error sending WhatsApp:', error);
+        alert('Network error while sending WhatsApp');
+    });
 }
 
 // ============================================
